@@ -1,0 +1,79 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/debian10"
+  config.vm.provider "virtualbox" do |vb|
+    # Display the VirtualBox GUI when booting the machine
+    vb.gui = true
+    vb.name = "my_vm"
+    # Customize the amount of memory on the VM:
+    vb.memory = "2048"
+    vb.cpus = 2
+    vb.customize ["modifyvm", :id, "--accelerate3d", "on"]
+    vb.customize ["modifyvm", :id, "--accelerate2dvideo", "on"]
+    vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
+    vb.customize ["modifyvm", :id, "--draganddrop", "bidirectional"]
+  end
+  config.vm.network :forwarded_port, guest: 80, host: 8080
+  config.vm.provision "shell", inline: <<-SHELL
+  # update
+  apt update 
+  apt full-upgrade -y
+  # install mate
+  tasksel install mate-desktop
+
+  # Langue
+  apt install locales -y
+  echo "Europe/Paris" > /etc/timezone
+  dpkg-reconfigure -f noninteractive tzdata
+  sed -i -e 's/# en_US.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' /etc/locale.gen
+  sed -i -e 's/# de_AT.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' /etc/locale.gen
+  echo 'LANG="fr_FR.UTF-8"'>/etc/default/locale
+  dpkg-reconfigure --frontend=noninteractive locales
+  update-locale LANG=fr_FR.UTF-8
+
+  # app
+  apt install linux-headers-$(uname -r) build-essential dkms
+  apt install tree -y
+  apt install terminator -y
+  apt install screen -y
+  apt install nmap -y
+  apt install filezilla -y
+  apt install filezilla-common -y
+  apt install gdebi -y
+  apt install gedit -y
+  apt install gparted -y
+  apt install diodon -y
+  apt install remmina -y
+  apt install vim -y
+  # Installation de tor
+  mkdir -p /root/Documents/TOR/
+  cd /root/Documents/TOR/
+  lynx -dump https://dist.torproject.org/torbrowser | sed "13 q"
+  # Téléchargement de tor
+  wget https://dist.torproject.org/torbrowser/"$versiontor"/tor-browser-linux64-"$versiontor"_fr.tar.xz   
+  # Extratction
+  tar xvf tor-browser-linux64*  
+  cd /root/Documents/TOR/tor-browser_fr/
+  # Création du raccourci
+  ./start-tor-browser.desktop --register-app
+  # Bug root
+  if [ "$(id -u)" -eq 0 ]; then
+             sed -i -e 's/-eq 0/-eq 1000/' /root/Documents/TOR/tor-browser_fr/Browser/start-tor-browser 
+  fi
+  rm -rf /root/Documents/TOR/*_fr.tar.xz
+  # installation de simplenote
+  wget https://github.com/Automattic/simplenote-electron/releases/download/v1.10.0/Simplenote-linux-1.10.0-amd64.deb
+  apt install gconf2 -y
+  dpkg -i Simplenote-linux-1.10.0-amd64.deb && rm Simplenote-linux-1.10.0-amd64.deb
+  # Installation de Visual Studio Code
+  wget http://packages.microsoft.com/repos/vscode/pool/main/c/code/code_1.40.1-1573664190_amd64.deb
+  apt install ./code_1.40.1-1573664190_amd64.deb -y && rm code_1.40.1-1573664190_amd64.deb
+  code --install-extension timonwong.shellcheck
+  # nettoyage du système
+  apt autoremove --purge -y
+  apt autoclean
+
+  SHELL
+end
